@@ -6,8 +6,8 @@
 
 use serde::Deserialize;
 
-/// Report path (query params carry model, nonce, provider, ...).
-pub const ATTESTATION_PATH: &str = "/v1/attestation/report";
+/// Report path, joined onto the versioned base (e.g. `.../v1`).
+pub const ATTESTATION_PATH: &str = "/attestation/report";
 
 /// Gateway CPU quote (required subset of `DstackCpuQuote`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]

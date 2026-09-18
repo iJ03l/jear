@@ -4,6 +4,7 @@
 //! plus optional base-URL overrides). Bases are caller-provided so no
 //! endpoint is hardcoded except NEAR's documented default. Tests stay offline.
 
+use crate::attest::{AttestationReport, ATTESTATION_PATH};
 use crate::http::{get_json, join, post_json, HttpError};
 use crate::jev_wire::{WireRequest, WireResponse, JEV_SYSTEMONE_PATH};
 use crate::near::{CHAT_COMPLETIONS_PATH, CLOUD_BASE_URL, MODELS_PATH};
@@ -81,6 +82,24 @@ pub fn list_models(base: &str, api_key: &str) -> Result<Vec<ModelEntry>, HttpErr
     Ok(resp.data)
 }
 
+/// Full attestation report URL from a base.
+#[must_use]
+pub fn attestation_url(base: &str) -> String {
+    join(base, ATTESTATION_PATH)
+}
+
+/// Fetch the TEE attestation report for a nonce (live network, non-billable).
+/// Pair with `attest::verify(&report, nonce)` before displaying answers.
+pub fn attestation_report(
+    base: &str,
+    api_key: &str,
+    nonce: &str,
+) -> Result<AttestationReport, HttpError> {
+    let url = format!("{}?nonce={nonce}", attestation_url(base));
+    let raw = get_json(&url, api_key)?;
+    serde_json::from_value(raw).map_err(|e| HttpError::Json(e.to_string()))
+}
+
 /// Cheapest catalog entry for a token plan, or `None` when none are priced.
 /// This is the live "best economical model" pick.
 #[must_use]
@@ -151,6 +170,14 @@ mod tests {
         assert_eq!(
             models_url("https://cloud-api.near.ai/v1/"),
             "https://cloud-api.near.ai/v1/models"
+        );
+    }
+
+    #[test]
+    fn attestation_url_carries_path() {
+        assert_eq!(
+            attestation_url("https://cloud-api.near.ai/v1/"),
+            "https://cloud-api.near.ai/v1/attestation/report"
         );
     }
 

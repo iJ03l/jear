@@ -26,7 +26,7 @@ Users never pick a model or agent. `jear` routes by **budget**, **quality**, and
    ```bash
    cargo test
    ```
-   Expect `59 passed` across unit + integration tests (`tests/routing.rs` drives the full Jev→route→catalog loop offline, including tool calls and tier filtering).
+   Expect `60 passed` across unit + integration tests (`tests/routing.rs` drives the full Jev→route→catalog loop offline, including tool calls and tier filtering).
 3. **Run the offline router (no keys, no network):**
    ```bash
    cargo run -- "brief in plain English" --monthly-cents 5000
@@ -58,8 +58,8 @@ jear/
 ├── Cargo.toml
 ├── src/
 │   ├── lib.rs       # library root + module wiring
-│   ├── main.rs      # CLI + live Jev + catalog + completion, offline fallback
-│   ├── attest.rs    # TEE attestation report + nonce verify
+│   ├── main.rs      # CLI + live Jev + catalog + verify-before-display, offline fallback
+│   ├── attest.rs    # TEE attestation report + nonce verify (fail-closed in --live)
 │   ├── jev.rs       # Choice/Score/Noul types + confidence
 │   ├── jev_wire.rs  # SystemOne JSON (request/response, serde)
 │   ├── policy.rs    # budget x quality x sensitivity engine
@@ -69,7 +69,7 @@ jear/
 │   ├── route.rs     # orchestrator + answers_from_wire() + estimate_plan() + tier filter
 │   ├── budget.rs    # client-controlled monthly caps
 │   ├── http.rs      # bearer JSON POST/GET, key never logged
-│   ├── live.rs      # evaluate()/complete()/list_models()/pick_best() via env keys
+│   ├── live.rs      # evaluate()/complete()/list_models()/attestation_report() via env keys
 │   └── cli.rs       # brief + --monthly-cents + --live parsing
 ├── tests/
 │   └── routing.rs   # end-to-end routing loop, offline, no assumptions

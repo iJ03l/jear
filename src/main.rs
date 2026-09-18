@@ -1,11 +1,12 @@
+use jear::attest::verify as verify_attestation;
 use jear::budget::MonthlyBudget;
 use jear::cli::parse;
 use jear::ironclaw::{CostCaps, DeployTarget};
 use jear::jev::State;
 use jear::jev_wire::{WireQuestion, WireRequest, JEV_DEFAULT_MODEL};
 use jear::live::{
-    complete, env_key, evaluate, list_models, near_base, pick_best, NEAR_ENV_KEY,
-    TYPESAFE_BASE_ENV, TYPESAFE_ENV_KEY,
+    attestation_report, complete, env_key, evaluate, list_models, near_base, pick_best,
+    NEAR_ENV_KEY, TYPESAFE_BASE_ENV, TYPESAFE_ENV_KEY,
 };
 use jear::near::{Hosting, ModelInfo};
 use jear::near_wire::ChatRequest;
@@ -51,6 +52,19 @@ fn main() {
     // Live catalog first: best economical model for the task-sized plan wins.
     // Falls back to the routed demo pair when the catalog is unreachable.
     let base = near_base();
+    // Verify-before-display: fresh nonce, fetch report, check binding.
+    // Fail closed — nothing is shown when attestation fails.
+    let nonce = fresh_nonce();
+    match attestation_report(&base, &key, &nonce)
+        .map_err(|e| e.to_string())
+        .and_then(|report| verify_attestation(&report, &nonce).map_err(|e| e.to_string()))
+    {
+        Ok(signer) => println!("attested: {signer}"),
+        Err(e) => {
+            println!("attestation failed: {e} — staying offline");
+            return;
+        }
+    }
     let (plan_in, plan_out) = estimate_plan(answers.complexity);
     let model = match list_models(&base, &key) {
         Ok(entries) => match pick_best(&entries, plan_in, plan_out) {
@@ -88,6 +102,15 @@ fn routed_model(eligible: &[&ModelInfo]) -> String {
         .first()
         .map(|m| m.id.clone())
         .unwrap_or_else(|| "zai-org/GLM-5.1-FP8".to_string())
+}
+
+/// Fresh attestation nonce from time + process id (hex, no new deps).
+fn fresh_nonce() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("{nanos:x}-{}", std::process::id())
 }
 
 /// Ask live Jev for routing answers when `--live` keys exist.

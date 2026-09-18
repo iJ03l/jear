@@ -15,11 +15,11 @@ All notable changes to `jear` are documented here. Format follows Keep a Changel
 - `src/jev_wire.rs`: SystemOne JSON `WireRequest`/`WireResponse` via `serde` + 3 tests.
 - `src/near_wire.rs`: chat JSON + verbatim tools passthrough (`ChatTool`/`ToolCall`, `with_tools()`) + catalog `ModelEntry`/`ModelsResponse` with `estimated_cents()` + 6 tests.
 - `src/http.rs`: bearer JSON `post_json()`/`get_json()`, `join()`, key-never-logged `HttpError` + 3 offline tests.
-- `src/live.rs`: `evaluate()` + `complete()` + `list_models()` + `cheapest()`/`pick_best()` via env keys, caller-provided bases, offline tests + 6 tests.
+- `src/live.rs`: `evaluate()` + `complete()` + `list_models()` + `cheapest()`/`pick_best()` + `attestation_report()` via env keys, caller-provided bases, offline tests + 7 tests.
 - `src/attest.rs`: TEE `CpuQuote`/`AttestationReport` + nonce-bound `verify()` (full DCAP upstream) + 3 tests.
 - `src/cli.rs`: `Config`, `parse()` brief + client `--monthly-cents` + `--live` + 4 tests.
 - `src/lib.rs`: wires `attest`, `budget`, `cli`, `http`, `ironclaw`, `jev`, `jev_wire`, `live`, `near`, `near_wire`, `policy`, `route` modules.
-- `src/main.rs`: CLI-driven — brief + monthly via `route_with_monthly()`; live Jev `evaluate()` → `answers_from_wire()` → route → NEAR `complete()` on catalog `pick_best()` priced by `estimate_plan()`, offline fallback.
+- `src/main.rs`: CLI-driven — brief + monthly via `route_with_monthly()`; live Jev `evaluate()` → `answers_from_wire()` → route → NEAR `complete()` on catalog `pick_best()` priced by `estimate_plan()`; fail-closed attestation `verify()` before display, offline fallback.
 - `tests/routing.rs`: 6 end-to-end loop tests (Jev JSON → route → monthly/TEE gates → catalog pick), offline, no assumptions.
 - Deps: `serde` + `serde_json` + `ureq` with `json` feature (wire shapes + sync HTTP + live callers + CLI + live Jev loop + live catalog + attest done; server glue not built).
 - Tooling: `rustfmt.toml`, `.github/workflows/ci.yml` (fmt + clippy + test + run).
@@ -27,7 +27,7 @@ All notable changes to `jear` are documented here. Format follows Keep a Changel
 
 ### Verified
 
-- `cargo test --lib`: 53 passed; `cargo test --test routing`: 6 passed.
+- `cargo test --lib`: 54 passed; `cargo test --test routing`: 6 passed.
 - `cargo run`: prints hello + `brief` + `monthly` + `route: DirectLlm` demo (8 lines).
 - `cargo fmt --check`, `cargo clippy -- -D warnings`: clean.
 
