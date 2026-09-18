@@ -11,7 +11,7 @@ Users never pick a model or agent. `jear` routes by **budget**, **quality**, and
 ## Why
 
 - Jev decides: `Choice` (which agent), `Score` (complexity/sensitivity), `Noul` (needs private TEE? risky? urgent?) with calibrated confidence.
-- NEAR AI Cloud executes: OpenAI-compatible `https://cloud-api.near.ai/v1`, three privacy tiers, function tools forwarded verbatim — `jear` routes the input, outputs and tool calls flow normally.
+- NEAR AI Cloud executes: OpenAI-compatible `https://cloud-api.near.ai/v1`, three privacy tiers (TEE-only → TEE/anonymized → any) filtering the catalog, function tools forwarded verbatim — `jear` routes the input, outputs and tool calls flow normally.
 - IronClaw acts: secure Rust agent OS, personal instances + Agent Marketplace hires.
 
 ## Start (full steps)
@@ -26,7 +26,7 @@ Users never pick a model or agent. `jear` routes by **budget**, **quality**, and
    ```bash
    cargo test
    ```
-   Expect `58 passed` across unit + integration tests (`tests/routing.rs` drives the full Jev→route→catalog loop offline, including tool calls).
+   Expect `59 passed` across unit + integration tests (`tests/routing.rs` drives the full Jev→route→catalog loop offline, including tool calls and tier filtering).
 3. **Run the offline router (no keys, no network):**
    ```bash
    cargo run -- "brief in plain English" --monthly-cents 5000
@@ -66,7 +66,7 @@ jear/
 │   ├── near.rs      # TEE/anonymized/proxied tiers + ApiKey
 │   ├── near_wire.rs # chat + tools passthrough + ModelEntry catalog, estimated_cents()
 │   ├── ironclaw.rs  # channels, deploy target, caps, vault refs
-│   ├── route.rs     # orchestrator + answers_from_wire() + estimate_plan()
+│   ├── route.rs     # orchestrator + answers_from_wire() + estimate_plan() + tier filter
 │   ├── budget.rs    # client-controlled monthly caps
 │   ├── http.rs      # bearer JSON POST/GET, key never logged
 │   ├── live.rs      # evaluate()/complete()/list_models()/pick_best() via env keys

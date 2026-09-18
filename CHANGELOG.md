@@ -10,7 +10,7 @@ All notable changes to `jear` are documented here. Format follows Keep a Changel
 - `src/policy.rs`: `Route`, `PolicyInput`, `Decision`, `decide()` budget x sensitivity engine + 5 tests.
 - `src/near.rs`: `Hosting::{Tee,Anonymized,Proxied}` tiers + `privacy_rank()`/`meets_privacy()`, redacting `ApiKey` + 5 tests.
 - `src/ironclaw.rs`: `Channel`, `DeployTarget`, `CostCaps`, `VaultRef` + 3 tests.
-- `src/route.rs`: `Answers`, `route()`, `eligible_models()`, `within_caps()`, `route_with_monthly()`, `answers_from_wire()`, `estimate_plan()` + 7 tests.
+- `src/route.rs`: `Answers`, `route()`, `eligible_models()` + tier-aware `eligible_models_for()`, `within_caps()`, `route_with_monthly()`, `answers_from_wire()`, `estimate_plan()` + 8 tests.
 - `src/budget.rs`: client-controlled `MonthlyBudget`, `remaining()`, `can_afford()`, `record()` + 3 tests.
 - `src/jev_wire.rs`: SystemOne JSON `WireRequest`/`WireResponse` via `serde` + 3 tests.
 - `src/near_wire.rs`: chat JSON + verbatim tools passthrough (`ChatTool`/`ToolCall`, `with_tools()`) + catalog `ModelEntry`/`ModelsResponse` with `estimated_cents()` + 6 tests.
@@ -27,7 +27,7 @@ All notable changes to `jear` are documented here. Format follows Keep a Changel
 
 ### Verified
 
-- `cargo test --lib`: 52 passed; `cargo test --test routing`: 6 passed.
+- `cargo test --lib`: 53 passed; `cargo test --test routing`: 6 passed.
 - `cargo run`: prints hello + `brief` + `monthly` + `route: DirectLlm` demo (8 lines).
 - `cargo fmt --check`, `cargo clippy -- -D warnings`: clean.
 

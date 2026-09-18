@@ -56,14 +56,18 @@ pub fn route(
 }
 
 /// Filter a model catalog to what a decision allows.
-/// When `force_tee` is set, only private (TEE-hosted) models remain.
+/// When `force_tee` is set, only TEE-hosted models remain.
 #[must_use]
 pub fn eligible_models<'a>(models: &'a [ModelInfo], decision: &Decision) -> Vec<&'a ModelInfo> {
-    if decision.force_tee {
-        models.iter().filter(|m| m.is_private()).collect()
-    } else {
-        models.iter().collect()
-    }
+    let minimum = if decision.force_tee { 2 } else { 0 };
+    eligible_models_for(models, minimum)
+}
+
+/// Filter a model catalog by minimum privacy rank
+/// (2 = TEE-only, 1 = TEE or anonymized gateway, 0 = any).
+#[must_use]
+pub fn eligible_models_for(models: &[ModelInfo], minimum: u8) -> Vec<&ModelInfo> {
+    models.iter().filter(|m| m.meets_privacy(minimum)).collect()
 }
 
 /// Check IronClaw spend caps for an estimate.
@@ -174,6 +178,23 @@ mod tests {
         let eligible = eligible_models(&models, &d);
         assert_eq!(eligible.len(), 1);
         assert_eq!(eligible[0].id, "zai-org/GLM-5.1-FP8");
+    }
+
+    #[test]
+    fn medium_sensitivity_keeps_anonymized() {
+        use crate::near::{Hosting, ModelInfo};
+        let models = vec![
+            ModelInfo::new("glm-tee", Hosting::Tee, true),
+            ModelInfo::new("claude-anon", Hosting::Anonymized, true),
+            ModelInfo::new("gpt-proxied", Hosting::Proxied, true),
+        ];
+        let tier1: Vec<&str> = eligible_models_for(&models, 1)
+            .iter()
+            .map(|m| m.id.as_str())
+            .collect();
+        assert_eq!(tier1, vec!["glm-tee", "claude-anon"]);
+        assert_eq!(eligible_models_for(&models, 2).len(), 1);
+        assert_eq!(eligible_models_for(&models, 0).len(), 3);
     }
 
     #[test]
