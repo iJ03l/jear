@@ -1,0 +1,34 @@
+[package]
+name = "jear"
+version = "0.1.0"
+edition = "2021"
+description = "Jev-routed client for NEAR AI Cloud inference and IronClaw agents — routing by budget, quality, and sensitivity"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ij03l/jear"
+homepage = "https://github.com/ij03l/jear"
+documentation = "https://docs.rs/jear"
+keywords = ["ai", "agents", "routing", "near", "jev"]
+categories = ["command-line-utilities"]
+rust-version = "1.70"
+readme = "README.md"
+
+[[bin]]
+name = "jear"
+path = "src/main.rs"
+
+[lib]
+name = "jear"
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ureq = { version = "2.10", features = ["json"] }
+
+[dev-dependencies]
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

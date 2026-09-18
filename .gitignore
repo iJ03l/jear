@@ -1,0 +1,21 @@
+# Rust build output
+/target/
+
+# Backup files from rustc
+**/*.rs.bk
+
+# Windows debug symbols
+*.pdb
+
+# Env with secrets (NEAR_API_KEY, TYPESAFE_API_KEY, etc.)
+.env
+.env.*
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
