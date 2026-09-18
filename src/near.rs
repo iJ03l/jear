@@ -13,15 +13,39 @@ pub const CHAT_COMPLETIONS_PATH: &str = "/chat/completions";
 pub const MODELS_PATH: &str = "/models";
 
 /// Where a model executes — determines privacy guarantees.
+/// Three tiers: fully private TEE hosting, anonymized TEE-gateway access
+/// to frontier models (NEAR 26.2: zero provider visibility, attested),
+/// and plain proxied pass-through where provider visibility applies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Hosting {
     /// Runs on NEAR GPU fleet in TEE (Intel TDX + NVIDIA TEE).
     /// Supports attestation, signatures, verification. Nobody —
     /// not even NEAR — can see prompts or outputs.
     Tee,
-    /// Proxied to upstream provider (OpenAI, Anthropic, Gemini).
-    /// Same unified API/billing, but TEE guarantees do not extend.
+    /// Frontier models via the TEE gateway with no tracking and no
+    /// training on data, per NEAR 26.2 anonymous access.
+    Anonymized,
+    /// Plain proxied pass-through to an upstream provider.
+    /// TEE guarantees do not extend; provider visibility applies.
     Proxied,
+}
+
+impl Hosting {
+    /// Privacy rank: higher survives stricter sensitivity filters.
+    #[must_use]
+    pub fn privacy_rank(self) -> u8 {
+        match self {
+            Self::Tee => 2,
+            Self::Anonymized => 1,
+            Self::Proxied => 0,
+        }
+    }
+
+    /// True when this tier meets a minimum rank requirement.
+    #[must_use]
+    pub fn allows(self, minimum: u8) -> bool {
+        self.privacy_rank() >= minimum
+    }
 }
 
 /// A model entry from the catalog (subset we route on).
@@ -50,6 +74,13 @@ impl ModelInfo {
     #[must_use]
     pub fn is_private(&self) -> bool {
         self.hosting == Hosting::Tee
+    }
+
+    /// True when this entry meets a minimum privacy rank
+    /// (2 = TEE-only, 1 = TEE or anonymized, 0 = any).
+    #[must_use]
+    pub fn meets_privacy(&self, minimum: u8) -> bool {
+        self.hosting.allows(minimum)
     }
 }
 
@@ -89,6 +120,16 @@ mod tests {
     fn proxied_model_is_not_private() {
         let m = ModelInfo::new("openai/gpt-5", Hosting::Proxied, true);
         assert!(!m.is_private());
+    }
+
+    #[test]
+    fn privacy_ranks_order_tiers() {
+        assert!(Hosting::Tee.privacy_rank() > Hosting::Anonymized.privacy_rank());
+        assert!(Hosting::Anonymized.privacy_rank() > Hosting::Proxied.privacy_rank());
+        let anon = ModelInfo::new("claude-anon", Hosting::Anonymized, true);
+        assert!(!anon.is_private());
+        assert!(anon.meets_privacy(1));
+        assert!(!anon.meets_privacy(2));
     }
 
     #[test]

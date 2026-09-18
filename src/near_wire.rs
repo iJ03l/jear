@@ -5,13 +5,17 @@
 
 use serde::{Deserialize, Serialize};
 
-/// One chat message.
+/// One chat message. `tool_calls` passes through untouched so the gate
+/// never drops function calls the caller attached.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChatMessage {
     /// Role: `system`, `user`, or `assistant`.
     pub role: String,
     /// Message text.
     pub content: String,
+    /// Pending tool calls from the assistant (forwarded verbatim).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tool_calls: Vec<ToolCall>,
 }
 
 impl ChatMessage {
@@ -21,8 +25,53 @@ impl ChatMessage {
         Self {
             role: "user".to_string(),
             content: content.into(),
+            tool_calls: Vec::new(),
         }
     }
+}
+
+/// A function tool definition, forwarded verbatim (OpenAI shape).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChatTool {
+    /// Always `"function"` for function tools.
+    #[serde(rename = "type")]
+    pub kind: String,
+    /// The function signature.
+    pub function: FunctionDef,
+}
+
+/// A callable function signature.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct FunctionDef {
+    /// Function name.
+    pub name: String,
+    /// Human description (optional).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// JSON Schema parameters (optional, kept as `Value`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameters: Option<serde_json::Value>,
+}
+
+/// A pending tool call returned by the assistant, forwarded verbatim.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ToolCall {
+    /// Call id for pairing with results.
+    pub id: String,
+    /// Always `"function"` for function calls.
+    #[serde(rename = "type")]
+    pub kind: String,
+    /// The invoked function + JSON arguments string.
+    pub function: CalledFunction,
+}
+
+/// An invoked function with raw JSON arguments.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CalledFunction {
+    /// Function name.
+    pub name: String,
+    /// JSON-encoded arguments.
+    pub arguments: String,
 }
 
 /// Chat completions request body (subset we send).
@@ -32,6 +81,9 @@ pub struct ChatRequest {
     pub model: String,
     /// Conversation messages.
     pub messages: Vec<ChatMessage>,
+    /// Function tools the model may call (forwarded verbatim).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tools: Vec<ChatTool>,
 }
 
 impl ChatRequest {
@@ -41,7 +93,15 @@ impl ChatRequest {
         Self {
             model: model.into(),
             messages: vec![ChatMessage::user(content)],
+            tools: Vec::new(),
         }
+    }
+
+    /// Attach function tools (chainable).
+    #[must_use]
+    pub fn with_tools(mut self, tools: Vec<ChatTool>) -> Self {
+        self.tools = tools;
+        self
     }
 }
 
@@ -184,6 +244,43 @@ mod tests {
         let r: ChatResponse = serde_json::from_value(raw).expect("deserialize");
         assert!(r.usage.is_none());
         assert!(r.first_text().is_none());
+    }
+
+    #[test]
+    fn tools_round_trip_verbatim() {
+        let req =
+            ChatRequest::new("zai-org/GLM-5.1-FP8", "What is 2+2?").with_tools(vec![ChatTool {
+                kind: "function".to_string(),
+                function: FunctionDef {
+                    name: "calc".to_string(),
+                    description: Some("Evaluate math".to_string()),
+                    parameters: Some(serde_json::json!({"type": "object"})),
+                },
+            }]);
+        let v = serde_json::to_value(&req).expect("serialize");
+        assert_eq!(v["tools"][0]["type"], "function");
+        assert_eq!(v["tools"][0]["function"]["name"], "calc");
+        let raw = serde_json::json!({
+            "id": "chatcmpl-3",
+            "model": "zai-org/GLM-5.1-FP8",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "calc", "arguments": "{\"x\": 2}"}
+                    }]
+                },
+                "finish_reason": "tool_calls"
+            }]
+        });
+        let r: ChatResponse = serde_json::from_value(raw).expect("deserialize");
+        let call = &r.choices[0].message.tool_calls[0];
+        assert_eq!(call.id, "call_1");
+        assert_eq!(call.function.name, "calc");
     }
 
     #[test]

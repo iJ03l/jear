@@ -11,35 +11,45 @@ Users never pick a model or agent. `jear` routes by **budget**, **quality**, and
 ## Why
 
 - Jev decides: `Choice` (which agent), `Score` (complexity/sensitivity), `Noul` (needs private TEE? risky? urgent?) with calibrated confidence.
-- NEAR AI Cloud executes: OpenAI-compatible `https://cloud-api.near.ai/v1`, TEE-hosted private models with attestation, plus proxied frontier models.
+- NEAR AI Cloud executes: OpenAI-compatible `https://cloud-api.near.ai/v1`, three privacy tiers, function tools forwarded verbatim — `jear` routes the input, outputs and tool calls flow normally.
 - IronClaw acts: secure Rust agent OS, personal instances + Agent Marketplace hires.
 
-## Quick start
+## Start (full steps)
 
-```bash
-cargo test
-cargo run -- "brief in plain English" --monthly-cents 5000
-```
+0. **Prereqs:** Rust 1.70+ (`rustup --version`), git, no keys needed yet.
+1. **Clone & enter:**
+   ```bash
+   git clone https://github.com/iJ03l/jear.git
+   cd jear
+   ```
+2. **Check everything passes:**
+   ```bash
+   cargo test
+   ```
+   Expect `58 passed` across unit + integration tests (`tests/routing.rs` drives the full Jev→route→catalog loop offline, including tool calls).
+3. **Run the offline router (no keys, no network):**
+   ```bash
+   cargo run -- "brief in plain English" --monthly-cents 5000
+   ```
+   Expect: `route: DirectLlm`, a `reason`, `eligible models: 2`, your `monthly` remainder.
+4. **Set your own monthly cap** (client-controlled, any amount in cents):
+   ```bash
+   cargo run -- "summarize my inbox" --monthly-cents 12000
+   ```
+5. **Go live with NEAR** (needs key, else stays offline with guidance):
+   ```bash
+   export NEAR_API_KEY="sk-..."
+   cargo run -- "brief in plain English" --monthly-cents 5000 --live
+   ```
+6. **Add Jev routing on top** (both required — without the base URL `jear`
+   stays on offline answers by design, NEAR completion still works):
+   ```bash
+   export TYPESAFE_API_KEY="..."
+   export TYPESAFE_BASE_URL="https://your-typesafe-endpoint"
+   cargo run -- "brief in plain English" --monthly-cents 5000 --live
+   ```
 
-Expected:
-
-```text
-jear v0.1.0 — foundation ready
-brief: Summarize my last 3 payout-failure emails
-monthly: 5000c remaining
-route: DirectLlm (tee: false)
-reason: simple lookup — direct inference
-eligible models: 2
-caps ok for 5c: true
-target: Hub("demo-instance")
-```
-
-Live (needs key, else stays offline with guidance):
-
-```bash
-export NEAR_API_KEY="sk-..."
-cargo run -- "brief in plain English" --monthly-cents 5000 --live
-```
+Key sources: [`docs/KEYS.md`](docs/KEYS.md).
 
 ## Project layout
 
@@ -53,14 +63,16 @@ jear/
 │   ├── jev.rs       # Choice/Score/Noul types + confidence
 │   ├── jev_wire.rs  # SystemOne JSON (request/response, serde)
 │   ├── policy.rs    # budget x quality x sensitivity engine
-│   ├── near.rs      # NEAR Cloud TEE vs proxied + ApiKey
-│   ├── near_wire.rs # chat + ModelEntry catalog JSON, estimated_cents()
+│   ├── near.rs      # TEE/anonymized/proxied tiers + ApiKey
+│   ├── near_wire.rs # chat + tools passthrough + ModelEntry catalog, estimated_cents()
 │   ├── ironclaw.rs  # channels, deploy target, caps, vault refs
 │   ├── route.rs     # orchestrator + answers_from_wire() + estimate_plan()
 │   ├── budget.rs    # client-controlled monthly caps
 │   ├── http.rs      # bearer JSON POST/GET, key never logged
-│   ├── live.rs      # evaluate()/complete()/list_models()/cheapest() via env keys
+│   ├── live.rs      # evaluate()/complete()/list_models()/pick_best() via env keys
 │   └── cli.rs       # brief + --monthly-cents + --live parsing
+├── tests/
+│   └── routing.rs   # end-to-end routing loop, offline, no assumptions
 ├── docs/
 │   ├── NEWBIE.md    # 5-min start: demo, monthly, preset, API users
 │   ├── KEYS.md      # key sources, rotation, no-hosting answer
@@ -76,26 +88,6 @@ jear/
 ├── LICENSE-MIT
 └── LICENSE-APACHE
 ```
-
-## Roadmap
-
-1. Foundation (done): Cargo + lib + bin + docs
-2. Licenses + contributing + conduct + security + CI + fmt (done)
-3. `jev` router types (done): state, Choice/Score/Noul, confidence gating
-4. Policy engine (done): budget x quality x sensitivity, `force_tee`
-5. `near` types (done): TEE vs proxied, `ModelInfo`, redacting `ApiKey` — HTTP next
-6. `ironclaw` types (done): channels, deploy target, caps, `VaultRef` — SSH/API next
-7. Orchestrator `route()` (done): `Answers` + `route()` + TEE filter + caps check
-8. Monthly budget (done): client-controlled `MonthlyBudget` + `route_with_monthly()`
-9. Newbie guide (done): see `docs/NEWBIE.md` — demo, client-set cap, preset, API users
-10. Wire JSON (done): `jev_wire` SystemOne + `near_wire` chat shapes via `serde`
-11. HTTP helper (done): `http` bearer POST/GET via `ureq`, offline tests only
-12. Live callers (done): `live` `evaluate()` + `complete()` via env keys, offline tests
-13. CLI (done): `cli` brief + `--monthly-cents` + `--live`, wired into `main`
-14. Live Jev loop (done): `main` evaluates Jev → `answers_from_wire()` → routes → completes, offline fallback
-15. Live catalog (done): `list_models()` + `pick_best()` on `estimate_plan()` — cheapest price wins, ties prefer stronger models
-16. Attestation (done): `attest` report types + nonce-bound `verify()` — full DCAP stays upstream
-17. Server design (done): see `docs/SERVER.md` — per-tenant router-proxy, not built yet
 
 ## Docs
 
